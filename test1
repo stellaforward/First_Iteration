@@ -5,6 +5,7 @@
 ##      Open CV and Numpy integration        ##
 ###############################################
 
+
 import pyrealsense2 as rs
 import numpy as np
 import cv2
@@ -56,21 +57,22 @@ try:
         depth_colormap2 = cv2.applyColorMap(cv2.convertScaleAbs(depth_image2, alpha=0.03), cv2.COLORMAP_JET)
 
         combined_color = np.hstack((color_image1, color_image2, depth_colormap1, depth_colormap2))
-        #combined_map = np.hstack((depth_colormap1, depth_colormap2))
 
         cv2.namedWindow('Colormap and Cameras', cv2.WINDOW_AUTOSIZE)
         cv2.imshow('Colormap and Cameras', combined_color)
-        #cv2.imshow('Camera 1 Depth Colormap', combined_map)
+        cv2.circle(color_image1, (320,240), 5, (0,255,0), 5)
+        cv2.circle(color_image2, (320,240), 5, (0,255,0), 5)
 
         key = cv2.waitKey(1)
         if key & 0xFF == ord('q') or key == 27:
             break
 
 finally:
-    # Stop both pipelines cleanly
     print("Stopping Camera 1 pipeline...")
     pipeline1.stop()
     print("Stopping Camera 2 pipeline...")
     pipeline2.stop()
-    cv2.destroyAllWindows() # Closes all OpenCV windows
+    cv2.destroyAllWindows()
     print("All pipelines stopped and windows closed.")
+
+
