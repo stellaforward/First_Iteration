@@ -10,69 +10,77 @@ import pyrealsense2 as rs
 import numpy as np
 import cv2
 
-camera1 = "909512070385"
-camera2 = "912112071545"
+#getting rid of magic numbers
+pixels_rows = 640
+pixels_col = 480
+stream_unkown = 30
+
+camera_depth_x = 320
+camera_depth_y = 240
+alpha_ = 0.03
+
+x = 5
+min_color = 0
+max_color = 255
+
+wait_key = 1
+this_key = 27
 
 
-pipeline1 = rs.pipeline()
-config1 = rs.config()
-config1.enable_device(camera1)
-config1.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
-config1.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
-align1 = rs.align(rs.stream.color)
+#easier to make extensible
+class Camera(object):
+    pass
 
-pipeline2 = rs.pipeline()
-config2 = rs.config()
-config2.enable_device(camera2)
-config2.enable_stream(rs.stream.depth, 640, 480, rs.format.z16, 30)
-config2.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
-align2 = rs.align(rs.stream.color)
+camera1 = Camera()
+camera2 = Camera()
+cameras = [camera1, camera2]
+cameraID = ["909512070385","912112071545"]
+
+
+
+for i, camera in enumerate(cameras):
+    camera.id = cameraID[i]
+    camera.pipeline = rs.pipeline()
+    camera.config = rs.config()
+    camera.config.enable_device(camera1)
+    camera.config.enable_stream(rs.stream.depth, pixels_rows, pixels_col, rs.format.z16, stream_unkown)
+    camera.config.enable_stream(rs.stream.color, pixels_rows, pixels_col, rs.format.bgr8, stream_unkown)
+    camera.align = rs.align(rs.stream.color)
+
 
 try:
-    pipeline1.start(config1)
-    pipeline2.start(config2)
-    while True:
-        frames1 = pipeline1.wait_for_frames()
-        aligned_frames1 = align1.process(frames1)
-        color_frame1 = aligned_frames1.get_color_frame()
-        depth_frame1 = aligned_frames1.get_depth_frame()
+    for camera in cameras:
+        camera.pipeline.start(camera.config)
+        while True:
+            camera.frames = camera.pipeline.wait_for_frames()
+            camera.aligned_frames = camera.align.process(camera.frames)
+            camera.color_frame = camera.aligned_frames.get_color_frame()
+            camera.depth_frame = camera.aligned_frames.get_depth_frame()
 
-        frames2 = pipeline2.wait_for_frames()
-        aligned_frames2 = align2.process(frames2)
-        color_frame2 = aligned_frames2.get_color_frame()
-        depth_frame2 = aligned_frames2.get_depth_frame()
+            camera.color_image = np.asanyarray(camera.color_frame.get_data())
+            camera.depth_image = np.asanyarray(camera.depth_frame.get_data())
 
-        color_image1 = np.asanyarray(color_frame1.get_data())
-        depth_image1 = np.asanyarray(depth_frame1.get_data())
-        color_image2 = np.asanyarray(color_frame2.get_data())
-        depth_image2 = np.asanyarray(depth_frame2.get_data())
 
-        depth_value1 = depth_frame1.get_distance(320,240)
-        print(f"Depth1: {depth_value1:0.3f} meters")
+            camera.depth_value = camera.depth_frame.get_distance(camera_depth_x,camera_depth_y)
+            print(f"Depth1: {camera.depth_value:0.3f} meters")
 
-        depth_value2 = depth_frame2.get_distance(320,240)
-        print(f"Depth2: {depth_value2:0.3f} meters")
+            camera.depth_colormap = cv2.applyColorMap(cv2.convertScaleAbs(camera.depth_image, alpha=alpha_), cv2.COLORMAP_JET)
 
-        depth_colormap1 = cv2.applyColorMap(cv2.convertScaleAbs(depth_image1, alpha=0.03), cv2.COLORMAP_JET)
-        depth_colormap2 = cv2.applyColorMap(cv2.convertScaleAbs(depth_image2, alpha=0.03), cv2.COLORMAP_JET)
 
-        combined_color = np.hstack((color_image1, color_image2, depth_colormap1, depth_colormap2))
+            combined_color = np.hstack((camera.color_image, camera.depth_colormap))
 
-        cv2.namedWindow('Colormap and Cameras', cv2.WINDOW_AUTOSIZE)
-        cv2.imshow('Colormap and Cameras', combined_color)
-        cv2.circle(color_image1, (320,240), 5, (0,255,0), 5)
-        cv2.circle(color_image2, (320,240), 5, (0,255,0), 5)
+            cv2.namedWindow('Colormap and Cameras', cv2.WINDOW_AUTOSIZE)
+            cv2.imshow('Colormap and Cameras', combined_color)
+            cv2.circle(camera.color_image, (camera_depth_x,camera_depth_y), x, (min_color,max_color,min_color), x)
 
-        key = cv2.waitKey(1)
-        if key & 0xFF == ord('q') or key == 27:
-            break
+            key = cv2.waitKey(wait_key)
+            if key & 0xFF == ord('q') or key == this_key:
+                break
 
 finally:
-    print("Stopping Camera 1 pipeline...")
-    pipeline1.stop()
-    print("Stopping Camera 2 pipeline...")
-    pipeline2.stop()
+    for camera in cameras:
+        print("Stopping Camera 1 pipeline...")
+        camera.pipeline.stop()
+
     cv2.destroyAllWindows()
     print("All pipelines stopped and windows closed.")
-
-
